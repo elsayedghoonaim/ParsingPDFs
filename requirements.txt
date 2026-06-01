@@ -1,0 +1,4 @@
+PyMuPDF>=1.24.0
+pymupdf4llm>=0.0.1
+PyYAML>=6.0
+aiohttp>=3.9.0

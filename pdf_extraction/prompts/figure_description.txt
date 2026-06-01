@@ -1,0 +1,10 @@
+Describe this figure in detail for inclusion in a document.
+
+Provide:
+- What type of visual this is (chart, diagram, photograph, schematic, etc.)
+- All visible text labels, axis labels, legends, and titles
+- Key data points, values, or trends shown
+- The overall message or purpose of the figure
+
+Format your response as a single paragraph. Do NOT use Markdown formatting.
+Do NOT start with "This figure shows" — just describe the content directly.

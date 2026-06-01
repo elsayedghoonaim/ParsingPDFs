@@ -1,0 +1,32 @@
+# Byte-compiled / optimized / DLL files
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+
+# Packaging / Distribution
+.Python
+build/
+dist/
+venv/
+.venv/
+env/
+.env
+.env.*
+
+# Configuration files
+config.yaml
+
+# Generated Pipeline Outputs
+output/
+pdf_extraction/output/
+downloaded_test_pdfs/
+*.pdf
+*.md
+!README.md
+!requirements.txt
+
+# Editor / OS settings
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

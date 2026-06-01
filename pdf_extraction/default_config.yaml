@@ -1,0 +1,78 @@
+# ==============================================================================
+# PDF EXTRACTION PIPELINE — CONFIGURATION REFERENCE
+# ==============================================================================
+# Copy this file to your project as 'config.yaml' and modify as needed.
+# Only override what you need — all values below are the defaults.
+# ==============================================================================
+
+# --- Classification ---
+# Controls how the pipeline decides if a PDF is "extractable" (text-based) 
+# or "scanned" (image-based, needs OCR/VLM).
+classification:
+  min_chars_per_page: 600        # Min extracted chars to consider a page "extractable"
+  max_image_coverage: 0.80       # If any image covers >80% of page → scanned
+  strategy: "sample"             # "first_page" | "sample"
+                                 #   first_page: classify by page 1 only (fastest)
+                                 #   sample: check pages 1, middle, last (more accurate)
+
+# --- Provider ---
+# Which VLM/OCR service to use for scanned pages and figure descriptions.
+# Not needed if all your PDFs are extractable text.
+provider:
+  name: "openai"                 # "openai" | "google" | "ollama" | "vllm" | "custom"
+  base_url: null                 # Override API base URL. null = use provider's default
+  api_key: null                  # API key. null = read from environment variable:
+                                 #   openai  → OPENAI_API_KEY
+                                 #   google  → GOOGLE_API_KEY
+                                 #   ollama  → (not needed)
+                                 #   vllm    → VLLM_API_KEY (optional)
+                                 #   custom  → CUSTOM_API_KEY
+  model: "gpt-4o"               # Model name/identifier for the provider
+
+  # For 'custom' provider only — ignored for other providers:
+  custom:
+    base_url: "http://localhost:8000/v1"
+    api_key: ""
+    model: "my-model"
+    headers: {}                  # Extra HTTP headers
+    supports_batch: false        # Does this endpoint accept multi-image requests?
+
+# --- VLM / OCR Behavior ---
+vlm:
+  describe_figures: false        # true = use VLM to describe figures in extractable pages
+  page_batching: "single"       # "single" = 1 page per API call (most compatible)
+                                 # "batch"  = all pages in 1 call (cheaper, needs provider support)
+  max_pages_per_batch: 10        # Safety limit for batch mode (prevents context overflow)
+  max_concurrent_requests: 5     # Max parallel API calls (rate limiting)
+  max_concurrent_documents: 3    # Max parallel document executions in directory processing
+  timeout_seconds: 120           # Per-request timeout
+  render_dpi: 200                # DPI for rendering PDF pages to images. Higher = better OCR, more tokens
+  optional_prompt: null          # Extra text APPENDED to the fixed prompt. Use for models
+                                 # that need special instructions (e.g., "Output in English only")
+
+# --- Cost Estimation ---
+cost:
+  enabled: true                  # Show estimated cost before processing scanned pages
+  warn_threshold_usd: 5.00      # Print warning if estimated cost exceeds this
+  price_per_image: null          # Override auto-detection. Format: 0.003 (dollars per image)
+
+# --- Output ---
+output:
+  directory: "./output/documents"
+  state_directory: "./output/state"
+  filename_strategy: "url_hash"  # "url_hash" (md5) or "original" (from filename/URL path)
+
+# --- Post-Processing ---
+# Automatic cleanup of VLM output to fix common issues.
+postprocessing:
+  enabled: true                  # Set to false to get raw VLM output
+  strip_code_wrappers: true      # Remove ```markdown ... ``` wrappers models sometimes add
+  normalize_whitespace: true     # Collapse excessive blank lines (>2 → 2)
+  fix_table_alignment: true      # Re-align Markdown table columns
+  normalize_headings: true       # Ensure heading levels start from # and increment properly
+
+# --- Logging ---
+logging:
+  level: "INFO"                  # "DEBUG" | "INFO" | "WARNING" | "ERROR"
+  log_classification_details: true  # Log per-document confidence metrics
+  log_file: null                 # null = console only, or path like "./output/pipeline.log"
