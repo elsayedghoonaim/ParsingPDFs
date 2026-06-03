@@ -76,12 +76,13 @@ class PipelineConfig:
     # VLM
     vlm_describe_figures: bool = False
     vlm_page_batching: str = "single"          # "single" | "batch"
-    max_pages_per_batch: int = 10
-    max_concurrent_requests: int = 5
-    max_concurrent_documents: int = 3
+    vlm_max_pages_per_batch: int = 10
+    vlm_max_concurrent_requests: int = 5
+    vlm_max_concurrent_documents: int = 3
     vlm_timeout_seconds: int = 120
     vlm_render_dpi: int = 200
-    optional_prompt: Optional[str] = None
+    vlm_optional_prompt: Optional[str] = None
+    vlm_max_output_tokens: int = 8192
 
     # Cost
     cost_enabled: bool = True
@@ -90,8 +91,8 @@ class PipelineConfig:
 
     # Output
     output_directory: str = "./output/documents"
-    state_directory: str = "./output/state"
-    filename_strategy: str = "url_hash"    # "url_hash" | "original"
+    output_state_directory: str = "./output/state"
+    output_filename_strategy: str = "url_hash"    # "url_hash" | "original"
 
     # Post-processing
     postprocessing_enabled: bool = True
@@ -101,6 +102,6 @@ class PipelineConfig:
     postprocessing_normalize_headings: bool = True
 
     # Logging
-    log_level: str = "INFO"
-    log_classification_details: bool = True
-    log_file: Optional[str] = None
+    logging_level: str = "INFO"
+    logging_log_classification_details: bool = True
+    logging_log_file: Optional[str] = None

@@ -55,17 +55,48 @@ class PDFPipeline:
     def __init__(self, config_path: str = None, **config_overrides):
         """
         Initialize the PDFPipeline.
-        
+
         Args:
-            config_path (str, optional): Path to a user config.yaml. Defaults to None.
+            config_path (str, optional): Path to a user config.yaml.
+                If None, the pipeline automatically looks for 'config.yaml' in
+                the current working directory before falling back to built-in defaults.
             **config_overrides: Flat configuration keys to override defaults.
         """
+        # Auto-detect config.yaml in the current working directory if not specified
+        if config_path is None:
+            cwd_config = os.path.join(os.getcwd(), "config.yaml")
+            if os.path.exists(cwd_config):
+                config_path = cwd_config
+                print(f"[INFO] Auto-detected config: {cwd_config}")
+
         self.config = load_config(config_path, **config_overrides)
         self.logger = setup_logging(self.config)
-        self.state = PipelineState(self.config.state_directory)
+        self.state = PipelineState(self.config.output_state_directory)
         
         # Only create provider when needed (lazy loaded)
         self._provider = None
+
+    def _config_error(self, err: Exception, doc_id: str, source_path: str, start_time: float) -> "ProcessResult":
+        """Return a clean failed ProcessResult and log a user-friendly config error."""
+        self.logger.error(
+            f"Provider not configured — {err}\n"
+            f"  → Open config.yaml and set:\n"
+            f"      provider.name:    google\n"
+            f"      provider.api_key: <your-key>\n"
+            f"      provider.model:   gemini-2.0-flash-lite\n"
+            f"  → Or export GOOGLE_API_KEY=<your-key> in your terminal."
+        )
+        self.state.mark_failed(doc_id, str(err))
+        return ProcessResult(
+            doc_id=doc_id,
+            source_path=source_path,
+            output_path="",
+            doc_type="",
+            classification_strategy="",
+            processing_time=time.time() - start_time,
+            status="failed",
+            error=f"Configuration error: {err}"
+        )
 
     def _get_provider(self):
         """Lazy-load the provider — only when the first VLM call is needed."""
@@ -180,7 +211,7 @@ class PDFPipeline:
             pages_needing_vlm = total_pages
             if self.config.vlm_page_batching == "batch":
                 import math
-                estimated_api_calls = math.ceil(total_pages / self.config.max_pages_per_batch)
+                estimated_api_calls = math.ceil(total_pages / self.config.vlm_max_pages_per_batch)
             else:
                 estimated_api_calls = total_pages
         elif self.config.vlm_describe_figures and figures_detected > 0:
@@ -233,7 +264,7 @@ class PDFPipeline:
             
             return await self._process_bytes_async(pdf_bytes, doc_id, source_path=pdf_path)
         except Exception as e:
-            self.logger.error(f"Failed to process file {pdf_path}: {e}", exc_info=True)
+            self.logger.error(f"Could not read file {pdf_path}: {e}")
             self.state.mark_failed(doc_id, str(e))
             return ProcessResult(
                 doc_id=doc_id,
@@ -262,7 +293,10 @@ class PDFPipeline:
                 
                 # Optionally process embedded figure images using VLM
                 if self.config.vlm_describe_figures and any(pr.figures_metadata for pr in page_results):
-                    provider = self._get_provider()
+                    try:
+                        provider = self._get_provider()
+                    except ValueError as cfg_err:
+                        return self._config_error(cfg_err, doc_id, source_path, start_time)
                     page_results, fig_calls = await vlm_describe_figures(page_results, provider, self.config)
                     vlm_calls += fig_calls
 
@@ -273,7 +307,10 @@ class PDFPipeline:
                         pr.markdown_text = clean_vlm_output(pr.markdown_text, self.config)
             else:
                 # Path B: Full OCR/VLM extraction for scanned documents
-                provider = self._get_provider()
+                try:
+                    provider = self._get_provider()
+                except ValueError as cfg_err:
+                    return self._config_error(cfg_err, doc_id, source_path, start_time)
                 page_results, vlm_calls = await extract_scanned_markdown(pdf_bytes, provider, self.config)
 
             # 3. Merge pages into a single consolidated Markdown string
@@ -281,7 +318,7 @@ class PDFPipeline:
 
             # 4. Save output markdown to disk
             os.makedirs(self.config.output_directory, exist_ok=True)
-            if self.config.filename_strategy == "original" and source_path:
+            if self.config.output_filename_strategy == "original" and source_path:
                 base_name = os.path.splitext(os.path.basename(source_path))[0]
                 sanitized_base = _sanitize_filename(base_name)
                 output_filename = f"{sanitized_base}.md"
@@ -332,11 +369,12 @@ class PDFPipeline:
                 "output_file": output_path
             })
 
-            self.logger.info(f"Successfully processed {source_path or doc_id} -> {output_path} ({processing_time:.2f}s)")
+            doc_name = os.path.basename(source_path) if source_path else doc_id[:8]
+            self.logger.info(f"✓ {doc_name} → {output_path} ({processing_time:.1f}s, {len(page_results)}p, {vlm_calls} API calls)")
             return result
 
         except Exception as e:
-            self.logger.error(f"Error during async bytes processing for doc_id {doc_id}: {e}", exc_info=True)
+            self.logger.error(f"Unexpected error processing {source_path or doc_id[:8]}: {e}")
             self.state.mark_failed(doc_id, str(e))
             return ProcessResult(
                 doc_id=doc_id,
@@ -378,7 +416,7 @@ class PDFPipeline:
             pdf_files = pending_files
 
         # Set up a directory-level semaphore to process multiple documents concurrently
-        sem = asyncio.Semaphore(self.config.max_concurrent_documents)
+        sem = asyncio.Semaphore(self.config.vlm_max_concurrent_documents)
 
         async def process_with_semaphore(index: int, pdf_path: str) -> ProcessResult:
             async with sem:

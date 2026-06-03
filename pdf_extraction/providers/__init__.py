@@ -1,5 +1,6 @@
 """Provider factory — returns the correct provider based on config."""
 
+from .openai_compatible import OpenAICompatibleProvider
 from .openai_provider import OpenAIProvider
 from .google_provider import GoogleProvider
 from .ollama_provider import OllamaProvider

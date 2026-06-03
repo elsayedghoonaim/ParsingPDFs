@@ -21,7 +21,7 @@ class OllamaProvider(BaseProvider):
         prompt: str,
         session: aiohttp.ClientSession
     ) -> str:
-        """Sends a single image to Ollama's local generation endpoint."""
+        """Sends a single image to Ollama's local generation endpoint with retry."""
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
         payload = {
             "model": self.model,
@@ -29,19 +29,23 @@ class OllamaProvider(BaseProvider):
             "images": [b64_image],
             "stream": False
         }
-
         url = f"{self.base_url}/api/generate"
 
-        try:
+        async def _request():
             async with session.post(url, json=payload) as response:
                 status = response.status
-                response_text = await response.text()
                 if status != 200:
+                    response_text = await response.text()
                     logger.error(f"Ollama API error {status}: {response_text}")
                     raise RuntimeError(f"Ollama API error {status}: {response_text}")
-                
                 result = await response.json()
-                return result["response"]
+                try:
+                    return result["response"]
+                except KeyError as e:
+                    raise RuntimeError(f"Invalid Ollama API response format: {e}. Response: {result}")
+
+        try:
+            return await self._retry_request(_request)
         except Exception as e:
             logger.error(f"Failed to send image to Ollama: {e}")
             raise
@@ -52,7 +56,7 @@ class OllamaProvider(BaseProvider):
         prompt: str,
         session: aiohttp.ClientSession
     ) -> str:
-        """Sequential fallback for Ollama because Ollama doesn't support multi-image batching natively."""
+        """Sequential fallback for Ollama — no native multi-image batching support."""
         logger.warning("Ollama does not support batch mode. Falling back to sequential calls.")
         results = []
         for i, img_bytes in enumerate(images):

@@ -31,7 +31,20 @@ async def main():
     print("TESTING 5 URLs FROM urls.txt")
     print("=" * 60)
 
-    config_path = "config.yaml" if os.path.exists("config.yaml") else None
+    # Resolve config.yaml: try CWD first, then the project root (parent of examples/)
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    _project_root = os.path.dirname(_script_dir)
+    config_path = None
+    for _candidate in ["config.yaml", os.path.join(_project_root, "config.yaml")]:
+        if os.path.exists(_candidate):
+            config_path = os.path.abspath(_candidate)
+            break
+
+    if config_path:
+        print(f"Using config: {config_path}")
+    else:
+        print("No config.yaml found — using built-in defaults.")
+
     pipeline = PDFPipeline(config_path=config_path)
     
     results = []

@@ -79,10 +79,10 @@ class PipelineState:
 
     @staticmethod
     def generate_doc_id(source: str) -> str:
-        """Generate a stable MD5 doc_id from a file path or identifier."""
+        """Generate a stable SHA-256 doc_id (first 32 chars) from a file path or identifier."""
         try:
-            return hashlib.md5(source.encode("utf-8", errors="ignore")).hexdigest()
+            return hashlib.sha256(source.encode("utf-8", errors="ignore")).hexdigest()[:32]
         except Exception as e:
             logger.error(f"Failed to generate stable doc_id for source '{source}': {e}")
             # Safe unique fallback using hash of source
-            return hashlib.md5(str(hash(source)).encode("utf-8")).hexdigest()
+            return hashlib.sha256(str(hash(source)).encode("utf-8")).hexdigest()[:32]

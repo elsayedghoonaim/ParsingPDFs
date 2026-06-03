@@ -49,6 +49,7 @@ vlm:
   render_dpi: 200                # DPI for rendering PDF pages to images. Higher = better OCR, more tokens
   optional_prompt: null          # Extra text APPENDED to the fixed prompt. Use for models
                                  # that need special instructions (e.g., "Output in English only")
+  max_output_tokens: 8192        # Max tokens the VLM may output per request (page or batch)
 
 # --- Cost Estimation ---
 cost:

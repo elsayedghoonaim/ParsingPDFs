@@ -84,10 +84,11 @@ def classify_document(pdf_bytes: bytes, config: PipelineConfig) -> Classificatio
             "page_count": page_count
         }
 
-        logger.info(
-            f"Classified as '{doc_type}' (strategy={config.classification_strategy}, "
-            f"sampled={sample_indices}, counts={confidence_metrics['chars_found']}, "
-            f"coverage={confidence_metrics['image_coverage']})"
+        logger.info(f"Document classified as {doc_type.upper()} ({page_count} pages, strategy={config.classification_strategy})")
+        logger.debug(
+            f"Classification detail: sampled={sample_indices}, "
+            f"chars={confidence_metrics['chars_found']}, "
+            f"coverage={confidence_metrics['image_coverage']}"
         )
 
         return ClassificationResult(doc_type=doc_type, confidence_metrics=confidence_metrics)

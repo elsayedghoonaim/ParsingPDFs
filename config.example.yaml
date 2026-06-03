@@ -42,6 +42,7 @@ vlm:
   timeout_seconds: 120           # Per-request timeout
   render_dpi: 200                # DPI for rendering PDF pages to images. Higher = better OCR, more tokens
   optional_prompt: null          # Extra text appended to the fixed prompt (e.g., "Output in English only")
+  max_output_tokens: 8192        # Max tokens the VLM may output per request
 
 # --- Cost Estimation ---
 cost:

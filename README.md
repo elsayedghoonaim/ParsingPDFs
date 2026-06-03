@@ -31,10 +31,10 @@ pipeline = PDFPipeline(
 
     # --- Provider Setup ---
     provider_name="google",                  # Active provider ("google", "openai", "ollama", "vllm", "custom")
-    provider_model="gemini-1.5-flash",       # Target VLM model (e.g., "gpt-4o", "gemini-1.5-pro")
+    provider_model="gemini-3.1-flash-lite",       # Target VLM model (e.g., "gpt-4o", "gemini-2.0-flash")
     provider_base_url=None,                  # Optional override for the API base URL
     provider_api_key=None,                   # Pass key directly, or leave None to read from os.environ
-    
+
     # Custom provider settings (ignored unless provider_name="custom")
     custom_base_url="http://localhost:8000/v1",
     custom_api_key="",
@@ -51,6 +51,7 @@ pipeline = PDFPipeline(
     vlm_timeout_seconds=120,                 # Network timeout in seconds
     vlm_render_dpi=200,                      # Resolution (DPI) to render PDF pages as images
     vlm_optional_prompt="Output in English", # Extra instructions for the AI
+    vlm_max_output_tokens=8192,              # Max tokens the VLM may output per request
 
     # --- Cost Estimation ---
     cost_enabled=True,                       # Estimate API costs before processing
@@ -60,7 +61,7 @@ pipeline = PDFPipeline(
     # --- Output & Logging ---
     output_directory="./output/documents",   # Where to save the output Markdown files
     output_state_directory="./output/state", # Where to save resume/progress trackers
-    output_filename_strategy="original",     # "original" (keeps name) or "url_hash" (MD5 hash)
+    output_filename_strategy="original",     # "original" (keeps name) or "url_hash" (SHA-256 hash)
     logging_level="INFO",                    # "DEBUG", "INFO", "WARNING", "ERROR"
     logging_log_classification_details=True, # Print page metrics to console
     logging_log_file=None,                   # Optional path to write a log file
@@ -90,6 +91,62 @@ python -m pdf_extraction -i my_document.pdf
 *Note: CLI execution relies on `config.yaml` or default settings.*
 
 ## Architecture
+
+```mermaid
+graph TB
+    subgraph "User Entry Points"
+        CLI["CLI (__main__.py)"]
+        API["Python API (PDFPipeline)"]
+    end
+
+    subgraph "Configuration Layer"
+        CFG["config.py + PipelineConfig"]
+        YAML["default_config.yaml / config.yaml"]
+    end
+
+    subgraph "Core Pipeline"
+        CLASS["classifier.py"]
+        TXT["extractor_text.py (pymupdf4llm)"]
+        VLM["extractor_vlm.py (VLM OCR)"]
+        FIG["figure_handler.py"]
+        POST["postprocessor.py"]
+        MERGE["merger.py"]
+        STATE["state.py"]
+    end
+
+    subgraph "Provider Abstraction"
+        BASE["BaseProvider (ABC)"]
+        GOOGLE["GoogleProvider"]
+        OPENAI["OpenAIProvider"]
+        OLLAMA["OllamaProvider"]
+        VLLM["VLLMProvider"]
+        CUSTOM["CustomProvider"]
+    end
+
+    subgraph "Utilities"
+        DL["download.py"]
+    end
+
+    CLI --> API
+    API --> CFG --> YAML
+    API --> CLASS
+    CLASS -->|extractable| TXT
+    CLASS -->|scanned| VLM
+    TXT -->|vlm_describe_figures| FIG
+    VLM --> POST
+    FIG --> POST
+    TXT --> MERGE
+    VLM --> MERGE
+    MERGE --> STATE
+    VLM --> BASE
+    FIG --> BASE
+    BASE --> GOOGLE
+    BASE --> OPENAI
+    BASE --> OLLAMA
+    BASE --> VLLM
+    BASE --> CUSTOM
+```
+
 - **Extractable PDFs (Text-Based)**: Uses `pymupdf4llm` to instantly convert native text/tables directly to Markdown offline.
 - **Scanned PDFs (Image-Based)**: Renders pages into images and sends them to a cloud or local Vision model (e.g. Gemini, GPT-4o, Ollama) for OCR conversion.
 - **Figures**: Automatically crops charts/diagrams and translates them into semantic descriptions using AI blockquotes.
