@@ -93,15 +93,17 @@ python -m pdf_extraction -i my_document.pdf
 ## Architecture
 
 ```mermaid
-graph TB
+graph TD
     subgraph "User Entry Points"
         CLI["CLI (__main__.py)"]
         API["Python API (PDFPipeline)"]
+        CLI ~~~ API
     end
 
     subgraph "Configuration Layer"
         CFG["config.py + PipelineConfig"]
         YAML["default_config.yaml / config.yaml"]
+        CFG ~~~ YAML
     end
 
     subgraph "Core Pipeline"
@@ -112,6 +114,13 @@ graph TB
         POST["postprocessor.py"]
         MERGE["merger.py"]
         STATE["state.py"]
+        
+        CLASS ~~~ TXT
+        TXT ~~~ VLM
+        VLM ~~~ FIG
+        FIG ~~~ POST
+        POST ~~~ MERGE
+        MERGE ~~~ STATE
     end
 
     subgraph "Provider Abstraction"
@@ -121,6 +130,12 @@ graph TB
         OLLAMA["OllamaProvider"]
         VLLM["VLLMProvider"]
         CUSTOM["CustomProvider"]
+        
+        BASE ~~~ GOOGLE
+        GOOGLE ~~~ OPENAI
+        OPENAI ~~~ OLLAMA
+        OLLAMA ~~~ VLLM
+        VLLM ~~~ CUSTOM
     end
 
     subgraph "Utilities"
@@ -128,18 +143,25 @@ graph TB
     end
 
     CLI --> API
-    API --> CFG --> YAML
+    API --> CFG
+    CFG --> YAML
+    
     API --> CLASS
     CLASS -->|extractable| TXT
     CLASS -->|scanned| VLM
+    
     TXT -->|vlm_describe_figures| FIG
+    
     VLM --> POST
     FIG --> POST
     TXT --> MERGE
     VLM --> MERGE
+    
     MERGE --> STATE
+    
     VLM --> BASE
     FIG --> BASE
+    
     BASE --> GOOGLE
     BASE --> OPENAI
     BASE --> OLLAMA

@@ -19,7 +19,7 @@ except ImportError as e:
     print("  → Run:  pip install -r requirements.txt\n")
     sys.exit(1)
 
-TEST_PDF_URL = "https://source.z2data.com/2017/4/16/4/16/55/206/1559202880/860-005-213R004.pdf"
+TEST_PDF_URL = "https://arxiv.org/pdf/1706.03762.pdf" # Attention Is All You Need
 DOWNLOAD_DIR = "./downloaded_test_pdfs"
 
 # ── ANSI colours (disabled automatically on Windows without colour support) ──
